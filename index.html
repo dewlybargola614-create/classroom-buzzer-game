@@ -201,6 +201,9 @@
 </style>
 </head>
 <body>
+<audio id="buzzerAudio" preload="auto" playsinline src="buzzer.wav"></audio>
+<audio id="chimeAudio" preload="auto" playsinline src="chime.wav"></audio>
+
 
 <header>
   <h1>🔔 BUZZER GAME</h1>
@@ -245,7 +248,6 @@
 let locked = false;
 let redScore = 0;
 let blueScore = 0;
-let audioCtx = null;
 let funSoundsEnabled = true;
 
 const redBtn = document.getElementById("redBtn");
@@ -257,37 +259,45 @@ const status = document.getElementById("status");
 const soundToggleBtn = document.getElementById("soundToggleBtn");
 
 const audioDebug = document.getElementById("audioDebug");
+const buzzerAudio = document.getElementById("buzzerAudio");
+const chimeAudio = document.getElementById("chimeAudio");
+let audioUnlocked = false;
 
 function reportAudioState(extra) {
   if (!audioDebug) return;
-  const state = audioCtx ? audioCtx.state : "no context";
-  audioDebug.textContent = "Audio: " + state + (extra ? " — " + extra : "");
+  audioDebug.textContent = "Audio: " + (audioUnlocked ? "unlocked" : "not yet unlocked") + (extra ? " — " + extra : "");
 }
 
-function initAudio() {
+// Unlock both audio elements on the very first tap/click, synchronously,
+// which is what iOS Safari requires. We play+immediately pause at volume 0
+// silently so future .play() calls later in the game are allowed.
+function unlockAudio() {
+  if (audioUnlocked) return;
   try {
-    if (!audioCtx) {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) {
-        reportAudioState("Web Audio not supported in this browser");
-        return;
+    [buzzerAudio, chimeAudio].forEach(el => {
+      el.muted = true;
+      const p = el.play();
+      if (p && p.then) {
+        p.then(() => {
+          el.pause();
+          el.currentTime = 0;
+          el.muted = false;
+        }).catch(err => reportAudioState("unlock error: " + err.message));
+      } else {
+        el.pause();
+        el.currentTime = 0;
+        el.muted = false;
       }
-      audioCtx = new Ctx();
-    }
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume().then(() => reportAudioState()).catch(err => reportAudioState("resume failed: " + err.message));
-    } else {
-      reportAudioState();
-    }
+    });
+    audioUnlocked = true;
+    reportAudioState();
   } catch (err) {
-    reportAudioState("init error: " + err.message);
+    reportAudioState("unlock error: " + err.message);
   }
 }
 
-// Unlock on the first user gesture, tried across several event types
-// since iOS Safari can be inconsistent about which counts as "trusted"
 ["pointerdown", "touchend", "click", "keydown"].forEach(evt => {
-  document.addEventListener(evt, initAudio, { once: true });
+  document.addEventListener(evt, unlockAudio, { once: true });
 });
 
 function toggleFunSounds() {
@@ -298,22 +308,9 @@ function toggleFunSounds() {
 // Low classic game-show buzzer sound (Always plays when buzzers hit)
 function playBuzzerSound() {
   try {
-    initAudio();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-
-    osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(160, audioCtx.currentTime);
-    osc.frequency.linearRampToValueAtTime(110, audioCtx.currentTime + 0.35);
-
-    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
-
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.35);
+    buzzerAudio.currentTime = 0;
+    const p = buzzerAudio.play();
+    if (p && p.catch) p.catch(err => reportAudioState("buzzer play error: " + err.message));
     reportAudioState("buzzer played");
   } catch (e) {
     reportAudioState("buzzer error: " + e.message);
@@ -324,33 +321,12 @@ function playBuzzerSound() {
 function playFunSound() {
   if (!funSoundsEnabled) return;
   try {
-    initAudio();
-    const now = audioCtx.currentTime;
-
-    // Note 1
-    const osc1 = audioCtx.createOscillator();
-    const gain1 = audioCtx.createGain();
-    osc1.type = "sine";
-    osc1.frequency.setValueAtTime(523.25, now);
-    gain1.gain.setValueAtTime(0.2, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-    osc1.connect(gain1);
-    gain1.connect(audioCtx.destination);
-    osc1.start(now);
-    osc1.stop(now + 0.15);
-
-    // Note 2
-    const osc2 = audioCtx.createOscillator();
-    const gain2 = audioCtx.createGain();
-    osc2.type = "sine";
-    osc2.frequency.setValueAtTime(659.25, now + 0.1);
-    gain2.gain.setValueAtTime(0.25, now + 0.1);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-    osc2.connect(gain2);
-    gain2.connect(audioCtx.destination);
-    osc2.start(now + 0.1);
-    osc2.stop(now + 0.3);
-  } catch (e) {}
+    chimeAudio.currentTime = 0;
+    const p = chimeAudio.play();
+    if (p && p.catch) p.catch(err => reportAudioState("chime play error: " + err.message));
+  } catch (e) {
+    reportAudioState("chime error: " + e.message);
+  }
 }
 
 function buzz(team) {
