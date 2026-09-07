@@ -206,6 +206,7 @@
   <h1>🔔 BUZZER GAME</h1>
   <button id="soundToggleBtn" class="sound-toggle" onclick="toggleFunSounds()">🎶 Fun Sounds: ON</button>
   <div id="status" class="status">Press a buzzer!</div>
+  <div id="audioDebug" style="font-size:13px;opacity:.55;margin-top:2px;">Audio: not yet initialized</div>
 </header>
 
 <div class="game">
@@ -255,18 +256,39 @@ const resultMessage = document.getElementById("resultMessage");
 const status = document.getElementById("status");
 const soundToggleBtn = document.getElementById("soundToggleBtn");
 
+const audioDebug = document.getElementById("audioDebug");
+
+function reportAudioState(extra) {
+  if (!audioDebug) return;
+  const state = audioCtx ? audioCtx.state : "no context";
+  audioDebug.textContent = "Audio: " + state + (extra ? " — " + extra : "");
+}
+
 function initAudio() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
+  try {
+    if (!audioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) {
+        reportAudioState("Web Audio not supported in this browser");
+        return;
+      }
+      audioCtx = new Ctx();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().then(() => reportAudioState()).catch(err => reportAudioState("resume failed: " + err.message));
+    } else {
+      reportAudioState();
+    }
+  } catch (err) {
+    reportAudioState("init error: " + err.message);
   }
 }
 
-// Global unlock for standard browser audio restrictions
-document.addEventListener('pointerdown', initAudio, { once: true });
-document.addEventListener('keydown', initAudio, { once: true });
+// Unlock on the first user gesture, tried across several event types
+// since iOS Safari can be inconsistent about which counts as "trusted"
+["pointerdown", "touchend", "click", "keydown"].forEach(evt => {
+  document.addEventListener(evt, initAudio, { once: true });
+});
 
 function toggleFunSounds() {
   funSoundsEnabled = !funSoundsEnabled;
@@ -292,7 +314,10 @@ function playBuzzerSound() {
 
     osc.start();
     osc.stop(audioCtx.currentTime + 0.35);
-  } catch (e) {}
+    reportAudioState("buzzer played");
+  } catch (e) {
+    reportAudioState("buzzer error: " + e.message);
+  }
 }
 
 // Light upward 2-note chime for round wins & actions
