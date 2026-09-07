@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classroom Buzzer Game</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f4f6fb;
+    color: #20242c;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  header {
+    padding: 18px 28px 10px;
+    text-align: center;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(28px, 4vw, 52px);
+  }
+
+  .status {
+    margin-top: 8px;
+    font-size: clamp(18px, 2vw, 28px);
+    font-weight: bold;
+    min-height: 34px;
+  }
+
+  .game {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 18px;
+    padding: 10px 30px 22px;
+  }
+
+  .scores {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .score {
+    min-width: 190px;
+    padding: 12px 22px;
+    border-radius: 18px;
+    background: white;
+    box-shadow: 0 4px 14px rgba(0,0,0,.08);
+    text-align: center;
+  }
+
+  .score .name {
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .score .points {
+    font-size: 42px;
+    font-weight: 800;
+  }
+
+  .redText { color: #e53935; }
+  .blueText { color: #1976d2; }
+
+  .buzzers {
+    display: flex;
+    gap: 28px;
+    width: min(1100px, 100%);
+    margin: 0 auto;
+    flex: 1;
+    max-height: 58vh;
+  }
+
+  .buzzer {
+    flex: 1;
+    border: none;
+    border-radius: 30px;
+    color: white;
+    font-size: clamp(30px, 5vw, 70px);
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 10px 0 rgba(0,0,0,.18);
+    transition: transform .08s, filter .15s;
+    touch-action: manipulation;
+  }
+
+  .buzzer:active {
+    transform: translateY(8px);
+    box-shadow: 0 2px 0 rgba(0,0,0,.18);
+  }
+
+  .red { background: #e53935; }
+  .blue { background: #1976d2; }
+
+  .buzzer.disabled {
+    filter: grayscale(.7);
+    opacity: .55;
+    cursor: not-allowed;
+  }
+
+  .result {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    background: rgba(0,0,0,.45);
+  }
+
+  .result.show { display: flex; }
+
+  .resultCard {
+    width: min(850px, 88vw);
+    padding: 45px 30px;
+    border-radius: 35px;
+    background: white;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    animation: pop .22s ease-out;
+  }
+
+  @keyframes pop {
+    from { transform: scale(.75); opacity: .4; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  .resultColor {
+    font-size: clamp(55px, 10vw, 130px);
+    font-weight: 1000;
+    line-height: 1;
+  }
+
+  .resultMessage {
+    margin-top: 18px;
+    font-size: clamp(26px, 4vw, 52px);
+    font-weight: 800;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  button.control {
+    border: none;
+    border-radius: 14px;
+    padding: 13px 22px;
+    font-size: 19px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .next { background: #20242c; color: white; }
+  .reset { background: #e0e3e8; color: #20242c; }
+
+  .hint {
+    text-align: center;
+    font-size: 15px;
+    opacity: .65;
+  }
+
+  @media (max-width: 700px) {
+    .game { padding: 8px 12px 14px; }
+    .buzzers { gap: 10px; max-height: 52vh; }
+    .buzzer { border-radius: 20px; }
+    .score { min-width: 140px; padding: 8px 15px; }
+    .score .name { font-size: 18px; }
+    .score .points { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔔 BUZZER GAME</h1>
+  <div id="status" class="status">Press a buzzer!</div>
+</header>
+
+<div class="game">
+  <div class="scores">
+    <div class="score">
+      <div class="name redText">🔴 RED</div>
+      <div id="redScore" class="points redText">0</div>
+    </div>
+    <div class="score">
+      <div class="name blueText">🔵 BLUE</div>
+      <div id="blueScore" class="points blueText">0</div>
+    </div>
+  </div>
+
+  <div class="buzzers">
+    <button id="redBtn" class="buzzer red">RED</button>
+    <button id="blueBtn" class="buzzer blue">BLUE</button>
+  </div>
+
+  <div class="controls">
+    <button class="control next" onclick="nextRound()">▶ NEXT ROUND</button>
+    <button class="control reset" onclick="resetGame()">↻ START ALL OVER</button>
+  </div>
+
+  <div class="hint">First buzzer wins the round • Scores stay until “START ALL OVER”</div>
+</div>
+
+<div id="result" class="result">
+  <div class="resultCard">
+    <div id="resultColor" class="resultColor"></div>
+    <div id="resultMessage" class="resultMessage"></div>
+  </div>
+</div>
+
+<script>
+let locked = false;
+let redScore = 0;
+let blueScore = 0;
+let audioContext = null;
+
+const redBtn = document.getElementById("redBtn");
+const blueBtn = document.getElementById("blueBtn");
+const result = document.getElementById("result");
+const resultColor = document.getElementById("resultColor");
+const resultMessage = document.getElementById("resultMessage");
+const status = document.getElementById("status");
+
+function beep() {
+  try {
+    audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(440, audioContext.currentTime + 0.18);
+
+    gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.35, audioContext.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.28);
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.3);
+  } catch (e) {}
+}
+
+function buzz(team) {
+  if (locked) return;
+  locked = true;
+
+  beep();
+
+  if (team === "red") {
+    redScore++;
+    document.getElementById("redScore").textContent = redScore;
+    showWinner("RED", "#e53935");
+  } else {
+    blueScore++;
+    document.getElementById("blueScore").textContent = blueScore;
+    showWinner("BLUE", "#1976d2");
+  }
+
+  redBtn.classList.add("disabled");
+  blueBtn.classList.add("disabled");
+  status.textContent = team.toUpperCase() + " buzzed first!";
+}
+
+function showWinner(team, color) {
+  resultColor.textContent = team;
+  resultColor.style.color = color;
+  resultMessage.textContent = "BUZZED FIRST! 🎉";
+  result.classList.add("show");
+
+  // Automatically hide the big winner display after a moment.
+  setTimeout(() => {
+    result.classList.remove("show");
+  }, 2200);
+}
+
+function nextRound() {
+  locked = false;
+  redBtn.classList.remove("disabled");
+  blueBtn.classList.remove("disabled");
+  result.classList.remove("show");
+  status.textContent = "Press a buzzer!";
+}
+
+function resetGame() {
+  redScore = 0;
+  blueScore = 0;
+  document.getElementById("redScore").textContent = "0";
+  document.getElementById("blueScore").textContent = "0";
+  nextRound();
+  status.textContent = "New game! Press a buzzer!";
+}
+
+// Touch/pointer events work well on interactive classroom displays.
+redBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  buzz("red");
+});
+
+blueBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  buzz("blue");
+});
+
+// Keyboard support: R = Red, B = Blue, Space = next round.
+document.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "r") buzz("red");
+  if (e.key.toLowerCase() === "b") buzz("blue");
+  if (e.code === "Space" && locked) nextRound();
+});
+</script>
+
+</body>
+</html>
