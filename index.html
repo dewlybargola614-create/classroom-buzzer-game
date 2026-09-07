@@ -21,11 +21,26 @@
   header {
     padding: 18px 28px 10px;
     text-align: center;
+    position: relative;
   }
 
   h1 {
     margin: 0;
     font-size: clamp(28px, 4vw, 52px);
+  }
+
+  .sound-toggle {
+    position: absolute;
+    top: 18px;
+    right: 28px;
+    background: #ffffff;
+    border: 2px solid #e0e3e8;
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.05);
   }
 
   .status {
@@ -174,6 +189,8 @@
   }
 
   @media (max-width: 700px) {
+    header { padding: 12px 16px 8px; }
+    .sound-toggle { position: static; margin-top: 8px; }
     .game { padding: 8px 12px 14px; }
     .buzzers { gap: 10px; max-height: 52vh; }
     .buzzer { border-radius: 20px; }
@@ -187,6 +204,7 @@
 
 <header>
   <h1>🔔 BUZZER GAME</h1>
+  <button id="soundToggleBtn" class="sound-toggle" onclick="toggleFunSounds()">🎶 Fun Sounds: ON</button>
   <div id="status" class="status">Press a buzzer!</div>
 </header>
 
@@ -226,7 +244,8 @@
 let locked = false;
 let redScore = 0;
 let blueScore = 0;
-let audioContext = null;
+let audioCtx = null;
+let funSoundsEnabled = true;
 
 const redBtn = document.getElementById("redBtn");
 const blueBtn = document.getElementById("blueBtn");
@@ -234,25 +253,78 @@ const result = document.getElementById("result");
 const resultColor = document.getElementById("resultColor");
 const resultMessage = document.getElementById("resultMessage");
 const status = document.getElementById("status");
+const soundToggleBtn = document.getElementById("soundToggleBtn");
 
-function beep() {
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+// Global unlock for standard browser audio restrictions
+document.addEventListener('pointerdown', initAudio, { once: true });
+document.addEventListener('keydown', initAudio, { once: true });
+
+function toggleFunSounds() {
+  funSoundsEnabled = !funSoundsEnabled;
+  soundToggleBtn.textContent = funSoundsEnabled ? "🎶 Fun Sounds: ON" : "🔇 Fun Sounds: OFF";
+}
+
+// Low classic game-show buzzer sound (Always plays when buzzers hit)
+function playBuzzerSound() {
   try {
-    audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
 
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(440, audioContext.currentTime + 0.18);
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+    osc.frequency.linearRampToValueAtTime(110, audioCtx.currentTime + 0.35);
 
-    gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.35, audioContext.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.28);
+    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
 
-    oscillator.connect(gain);
-    gain.connect(audioContext.destination);
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.3);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.35);
+  } catch (e) {}
+}
+
+// Light upward 2-note chime for round wins & actions
+function playFunSound() {
+  if (!funSoundsEnabled) return;
+  try {
+    initAudio();
+    const now = audioCtx.currentTime;
+    
+    // Note 1
+    const osc1 = audioCtx.createOscillator();
+    const gain1 = audioCtx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(523.25, now);
+    gain1.gain.setValueAtTime(0.2, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    osc1.connect(gain1);
+    gain1.connect(audioCtx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.15);
+
+    // Note 2
+    const osc2 = audioCtx.createOscillator();
+    const gain2 = audioCtx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(659.25, now + 0.1);
+    gain2.gain.setValueAtTime(0.25, now + 0.1);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+    osc2.connect(gain2);
+    gain2.connect(audioCtx.destination);
+    osc2.start(now + 0.1);
+    osc2.stop(now + 0.3);
   } catch (e) {}
 }
 
@@ -260,7 +332,7 @@ function buzz(team) {
   if (locked) return;
   locked = true;
 
-  beep();
+  playBuzzerSound();
 
   if (team === "red") {
     redScore++;
@@ -283,13 +355,17 @@ function showWinner(team, color) {
   resultMessage.textContent = "BUZZED FIRST! 🎉";
   result.classList.add("show");
 
-  // Automatically hide the big winner display after a moment.
+  setTimeout(() => {
+    playFunSound();
+  }, 120);
+
   setTimeout(() => {
     result.classList.remove("show");
   }, 2200);
 }
 
 function nextRound() {
+  if (locked) playFunSound();
   locked = false;
   redBtn.classList.remove("disabled");
   blueBtn.classList.remove("disabled");
@@ -298,6 +374,7 @@ function nextRound() {
 }
 
 function resetGame() {
+  playFunSound();
   redScore = 0;
   blueScore = 0;
   document.getElementById("redScore").textContent = "0";
@@ -306,7 +383,6 @@ function resetGame() {
   status.textContent = "New game! Press a buzzer!";
 }
 
-// Touch/pointer events work well on interactive classroom displays.
 redBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   buzz("red");
@@ -317,7 +393,6 @@ blueBtn.addEventListener("pointerdown", (e) => {
   buzz("blue");
 });
 
-// Keyboard support: R = Red, B = Blue, Space = next round.
 document.addEventListener("keydown", (e) => {
   if (e.key.toLowerCase() === "r") buzz("red");
   if (e.key.toLowerCase() === "b") buzz("blue");
