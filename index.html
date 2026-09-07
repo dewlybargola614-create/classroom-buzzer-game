@@ -264,26 +264,16 @@ function initAudio() {
   }
 }
 
-// Mobile/iOS unlock handlers
-const unlockAudio = () => {
-  initAudio();
-  if (audioCtx && audioCtx.state === 'running') {
-    document.removeEventListener('touchstart', unlockAudio);
-    document.removeEventListener('touchend', unlockAudio);
-    document.removeEventListener('click', unlockAudio);
-  }
-};
-
-document.addEventListener('touchstart', unlockAudio, false);
-document.addEventListener('touchend', unlockAudio, false);
-document.addEventListener('click', unlockAudio, false);
+// Global unlock for standard browser audio restrictions
+document.addEventListener('pointerdown', initAudio, { once: true });
+document.addEventListener('keydown', initAudio, { once: true });
 
 function toggleFunSounds() {
-  initAudio();
   funSoundsEnabled = !funSoundsEnabled;
   soundToggleBtn.textContent = funSoundsEnabled ? "🎶 Fun Sounds: ON" : "🔇 Fun Sounds: OFF";
 }
 
+// Low classic game-show buzzer sound (Always plays when buzzers hit)
 function playBuzzerSound() {
   try {
     initAudio();
@@ -305,12 +295,14 @@ function playBuzzerSound() {
   } catch (e) {}
 }
 
+// Light upward 2-note chime for round wins & actions
 function playFunSound() {
   if (!funSoundsEnabled) return;
   try {
     initAudio();
     const now = audioCtx.currentTime;
-    
+
+    // Note 1
     const osc1 = audioCtx.createOscillator();
     const gain1 = audioCtx.createGain();
     osc1.type = "sine";
@@ -322,6 +314,7 @@ function playFunSound() {
     osc1.start(now);
     osc1.stop(now + 0.15);
 
+    // Note 2
     const osc2 = audioCtx.createOscillator();
     const gain2 = audioCtx.createGain();
     osc2.type = "sine";
